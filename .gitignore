@@ -1,0 +1,4 @@
+.env
+sound_cache.pkl
+video_cache.pkl
+.env.prod

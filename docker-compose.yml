@@ -1,44 +1,33 @@
-version: '3.8'
-
 services:
-  # Discord Bot - Internal only (port 3000)
   discord-bot:
     build: .
+    image: localhost:5000/bozobot-discord-bot:latest
     container_name: discord-bot
     command: ["python", "discord_bot.py"]
-    ports:
-      - "3000"  # Internal port only, not exposed to host
     env_file:
       - .env
+    volumes:
+      - ${HOST_MEDIA_PATH}:${MEDIA_PATH}
     networks:
       - internal
-    restart: unless-stopped
+    restart: always
 
-  # FastAPI Server - Public facing (port 3001)
   fastapi-server:
     build: .
+    image: localhost:5000/bozobot-fastapi-server:latest
     container_name: fastapi-server
     command: ["python", "fastapi_server.py"]
     ports:
-      - "3001:3069"  # Exposed to host
+      - "${PORT_FASTAPI}:${PORT_FASTAPI}"
     env_file:
       - .env
+    volumes:
+      - ${HOST_MEDIA_PATH}:${MEDIA_PATH}
     networks:
       - internal
     depends_on:
       - discord-bot
-    restart: unless-stopped
-
-  # Discord Fast API Bridge
-  discord-bridge:
-    build: .
-    container_name: discord-bridge
-    command: ["python", "discord_fast_api_bridge.py"]
-    env_file:
-      - .env
-    networks:
-      - internal
-    restart: unless-stopped
+    restart: always
 
 networks:
   internal:

@@ -1,5 +1,4 @@
 import ast
-import datetime
 import pickle
 import re
 import time
@@ -13,15 +12,12 @@ import logging
 import traceback
 import requests
 import urllib3
-from discord import CallMessage, GroupCall
 
 from dotenv import load_dotenv
-from discord_fast_api_bridge import FastAPIMediaBridge as media_bridge
+from fastapi_server import FastAPIMediaBridge as media_bridge
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 urllib3.disable_warnings()
@@ -31,6 +27,7 @@ class MediaSelfBot(discord.Client):
 
         super().__init__()
 
+        self.media_folder = Path(media_folder)
         self.sounds_folder = Path(media_folder) / "Musique"
         self.video_folder = Path(media_folder) / "Video"
         self.supported_formats = {'.ogg', '.mp3','.wav', ".mp4", ".av1"}
@@ -39,15 +36,21 @@ class MediaSelfBot(discord.Client):
         self.video_cache = {}  # {filename_stem: file_path}
 
         # Check if sounds folder exists
+
+        if not self.media_folder.exists():
+            logger.error(f"Media folder does not exist: {self.media_folder}")
+            raise FileNotFoundError(f"Media folder not found: {self.media_folder}")
+
         if not self.sounds_folder.exists():
             logger.error(f"Sounds folder does not exist: {self.sounds_folder}")
             raise FileNotFoundError(f"Sounds folder not found: {self.sounds_folder}")
 
         if not self.video_folder.exists():
-            logger.error(f"Sounds folder does not exist: {self.sounds_folder}")
-            raise FileNotFoundError(f"Sounds folder not found: {self.sounds_folder}")
+            logger.error(f"Sounds folder does not exist: {self.video_folder}")
+            raise FileNotFoundError(f"Videos folder not found: {self.video_folder}")
 
     async def on_ready(self):
+        media_bridge.bot = self
         channel = await self.fetch_channel(1116010901586321448)
         msg0 = await channel.send("# Bozobot is connected to discord 🌍")
         logger.info(f'{self.user} selfbot is ready!')
@@ -59,8 +62,9 @@ class MediaSelfBot(discord.Client):
         await self.load_video_cache()
 
         await msg1.delete()
-        await channel.send("# Bozobot is fully ready ✅")
+        await channel.send(f"# Bozobot is fully ready ✅ ({len(media_bridge.get_active_connections())} connections)")
         logger.info('✅ Sound cache loaded and ready!')
+        logger.info('✅ {len(media_bridge.get_active_connections())} connections loaded and ready!')
 
     async def load_sound_cache(self, force=False):
         """Load all sound file names into cache for fast searching"""
@@ -512,8 +516,7 @@ class MediaSelfBot(discord.Client):
             await self.load_video_cache(True)
             end_video = time.time()
 
-            await message.reply(content=f"✅ Cache reloaded! Found {len(self.sound_cache) - len(old_sound_cache)} new sound files. (took {int(end_sound - start_sound)}s)")
-            await message.reply(content=f"✅ Cache reloaded! Found {len(self.video_cache) - len(old_video_cache)} new video files. (took {int(end_video - start_video)}s)")
+            await message.reply(content=f"✅ Cache reloaded! Found {len(self.sound_cache) - len(old_sound_cache)} new sound files. (took {int(end_sound - start_sound)}s)\n✅ Cache reloaded! Found {len(self.video_cache) - len(old_video_cache)} new video files. (took {int(end_video - start_video)}s)")
         except Exception as e:
             logger.error(f"Error reloading cache: {e}")
             await message.reply(content=f"❌ Error reloading cache: {str(e)}")
@@ -692,7 +695,6 @@ def main():
     try:
         selfbot = MediaSelfBot()
         selfbot.run(USER_TOKEN)
-        media_bridge.bot = selfbot
 
     except FileNotFoundError as e:
         print(f"❌ {e}")
